@@ -21,5 +21,5 @@ print(task_index_list)
 for task_index in task_index_list:
     p = Run('python3 /root/ocrtoc_ws/src/ocrtoc_task/scripts/run_single_simulation_task.py --task_index={}'.format(task_index))
     p.start()
-    p.join(timeout = 60)
+    p.join(timeout = 600)
     p.terminate()
