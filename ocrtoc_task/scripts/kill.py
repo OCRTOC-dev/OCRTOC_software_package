@@ -6,7 +6,7 @@ result = os.popen('ps -x')
 res = result.read()
 lines = res.splitlines()
 p_command = lines[0].find('COMMAND')
-kill_prefix_list = ['python ','python3 ','sh ', '/usr/bin/python ','python2', '/opt/ros/melodic/lib/']
+kill_prefix_list = ['python ','python3 ','sh ', '/usr/bin/python ','python2', '/opt/ros/melodic/lib/', '/usr/bin/python3']
 print('\033[031m')
 for line in lines[1:]:
     pid = line.strip().split()[0]

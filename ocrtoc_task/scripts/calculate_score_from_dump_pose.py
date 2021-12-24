@@ -90,7 +90,7 @@ class ScoreCalculator():
         """Get object poses
 
         Args:
-            type(string): target or dump
+            type(string): target or dump or scene
 
         Returns:
             dict: key-mesh_name, content-[{'t':t, 'mat':mat}].
@@ -100,6 +100,9 @@ class ScoreCalculator():
         if type == 'target':
             yaml_path = os.path.join(rospack.get_path('ocrtoc_materials'),
                                                 'targets', file_name)
+        elif type == 'scene':
+             yaml_path = os.path.join(rospack.get_path('ocrtoc_materials'),
+                                                'scenes', file_name)
         elif type == 'dump':
             yaml_path = os.path.join(rospack.get_path('ocrtoc_task'),
                                                 'evaluation', file_name)
@@ -126,7 +129,7 @@ class ScoreCalculator():
         """Get posed points
 
         Args:
-            type(string): target or dump
+            type(string): target or dump or scene
 
         Returns:
             dict: key-mesh_name, content-np.array
@@ -228,12 +231,17 @@ class ScoreCalculator():
             o3d.visualization.draw_geometries([frame, target_pcd, dump_pcd] + lines)
         return np.mean(min_dist)
 
-    def calculate_score(self):
+    def calculate_score(self, type='dump'):
         score_list = []
         mesh_name_list = []
         target_points_dict = self.get_points_dict(type = 'target')
-        dump_points_dict = self.get_points_dict(type = 'dump')
-        log_file = open(self.log_file_path, 'w')
+        dump_points_dict = dict()
+        if type == 'scene':
+            dump_points_dict = self.get_points_dict(type = 'scene')
+            log_file = open(self.log_file_path, 'a')
+        else:
+            dump_points_dict = self.get_points_dict(type = 'dump')
+            log_file = open(self.log_file_path, 'w')
         log_file_dir = os.path.join(rospkg.RosPack().get_path('ocrtoc_task'), 'evaluation')
         if not os.path.exists(log_file_dir):
             os.makedirs(log_file_dir)
@@ -245,8 +253,9 @@ class ScoreCalculator():
             min_permu_err_list = [INF_DISTANCE for i in range(len(target_points_dict[mesh_name]))]
             for index_list in permutations(range(len(target_points_dict[mesh_name]))):
                 permu_err_list = []
-                rospy.loginfo('index_list for mesh {}:{}\n{}'.format(mesh_name, index_list, '=' * 40))
-                log_file.write('index_list for mesh {}:{}\n{}\n'.format(mesh_name, index_list, '=' * 40))
+                if type == 'dump':
+                    rospy.loginfo('index_list for mesh {}:{}\n{}'.format(mesh_name, index_list, '=' * 40))
+                    log_file.write('index_list for mesh {}:{}\n{}\n'.format(mesh_name, index_list, '=' * 40))
                 for target_idx, dump_idx in zip(range(len(target_points_dict[mesh_name])), index_list):
                     dump_points = dump_points_dict[mesh_name][dump_idx]
                     target_points = target_points_dict[mesh_name][target_idx]
@@ -255,17 +264,19 @@ class ScoreCalculator():
                         if (not mesh_name in self.mesh_property.keys()) or (self.mesh_property[mesh_name]['symmetric'] == False):
                             score = self.compute_add(dump_points, target_points)
                             actual_score = min(score, max_bound)
-                            log_file.write('mesh_name:{}, method: ADD, score={}, max_bound = {}, actual score = {}\n'.format(
-                                mesh_name, score, max_bound, actual_score))
-                            rospy.loginfo('mesh_name:{}, method: ADD, score={}, max_bound = {}, actual score = {}'.format(
-                                mesh_name, score, max_bound, actual_score))
+                            if type == 'dump':
+                                log_file.write('mesh_name:{}, method: ADD, score={}, max_bound = {}, actual score = {}\n'.format(
+                                    mesh_name, score, max_bound, actual_score))
+                                rospy.loginfo('mesh_name:{}, method: ADD, score={}, max_bound = {}, actual score = {}'.format(
+                                    mesh_name, score, max_bound, actual_score))
                         else:
                             score = self.compute_adds(dump_points, target_points)
                             actual_score = min(score, max_bound)
-                            log_file.write('mesh_name:{}, method: ADDS, score={}, max_bound = {}, actual score = {}\n'.format(
-                                mesh_name, score, max_bound, actual_score))
-                            rospy.loginfo('mesh_name:{}, method: ADDS, score={}, max_bound = {}, actual score = {}'.format(
-                                mesh_name, score, max_bound, actual_score))
+                            if type == 'dump':
+                                log_file.write('mesh_name:{}, method: ADDS, score={}, max_bound = {}, actual score = {}\n'.format(
+                                    mesh_name, score, max_bound, actual_score))
+                                rospy.loginfo('mesh_name:{}, method: ADDS, score={}, max_bound = {}, actual score = {}'.format(
+                                    mesh_name, score, max_bound, actual_score))
                     else:
                         raise ValueError('Unknown metric')
                     permu_err_list.append(actual_score)
@@ -276,12 +287,13 @@ class ScoreCalculator():
             score_list += min_permu_err_list
             mesh_name_list += len(target_points_dict[mesh_name]) * [mesh_name]
         scene_score = np.mean(np.array(score_list))
-        log_file.write('{}\n'.format('-' * 60 + '\n' + '-' * 60))
-        for mesh_name, score in zip(mesh_name_list, score_list):
-            log_file.write('{}: {}\n'.format(mesh_name, score))
-        log_file.write('{}\nScene Index:{}, Symmetric object metric:{}\nScene mean score:{}'.format(
-            '-' * 60 + '\n' + '-' * 60, self.task_index, self.symmetric_metric,  scene_score))
-        rospy.loginfo('\033[032m\nScene mean score:{}\033[0m'.format(scene_score))
+        if type == "dump":
+            log_file.write('{}\n'.format('-' * 60 + '\n'  + '-' * 60))
+            for mesh_name, score in zip(mesh_name_list, score_list):
+                log_file.write('{}: {}\n'.format(mesh_name, score))
+            log_file.write('{}\nScene Index:{}, Symmetric object metric:{}\nScene mean score:{}\n'.format(
+                '-' * 60 + '\n' + '-' * 60, self.task_index, self.symmetric_metric,  scene_score))
+            rospy.loginfo('\033[032m\nScene after operation mean score:{}\033[0m'.format(scene_score))
         return scene_score
 
     def draw_line(self, p1, p2, a = 1e-3, color = np.array((0.0,1.0,0.0))):
@@ -335,5 +347,17 @@ if __name__ == '__main__':
         sys.exit()
     
     score_calculator = ScoreCalculator(task_index = task_index)
-    score_calculator.calculate_score()
+    afer_operation_score = score_calculator.calculate_score()
+    original_score = score_calculator.calculate_score(type='scene')
+    percentage = afer_operation_score/original_score
+    log_file_path = os.path.join(
+        rospkg.RosPack().get_path('ocrtoc_task'),
+        'evaluation',
+        '{}_score.txt'.format(task_index)
+        )
+    log_file = open(log_file_path, 'a')
+    log_file.write('\n afer_operation_score: {}, original_score: {}, percentage: {}\n'.format(afer_operation_score, original_score, percentage))
+    print('\033[032m Done! \033[0m')
+    
+
 

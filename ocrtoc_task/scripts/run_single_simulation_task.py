@@ -5,6 +5,7 @@ import os
 from multiprocessing import Process
 import time
 import argparse
+from pathlib import Path
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--task_index')
@@ -33,5 +34,5 @@ for cmd in cmds:
     ps[-1].start()
     time.sleep(delay_time)
 
-time.sleep(100)
+time.sleep(660)
 os.system('python3 /root/ocrtoc_ws/src/ocrtoc_task/scripts/kill.py')
